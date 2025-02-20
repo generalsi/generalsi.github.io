@@ -46,9 +46,24 @@
             background: #ffffff; /* Pure White star color */
             border-radius: 50%;
             opacity: 0.9; /* Slightly higher base opacity */
+            box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.6); /* Shine effect */
+            transition: opacity 0.8s, width 0.8s, height 0.8s, left 0.8s, top 0.8s; /* Smooth transitions for merge */
+        }
 
-            /* Shine Effect - Box Shadow */
-            box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.6); /* White glow */
+        /* Large Star Element - Initially Hidden */
+        #large-star {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 0px; /* Start very small */
+            height: 0px;
+            background: #ffffff;
+            border-radius: 50%;
+            opacity: 0; /* Initially invisible */
+            box-shadow: 0 0 20px 5px rgba(255, 255, 255, 0.8); /* Stronger glow for large star */
+            z-index: 0; /* Just above stars but below content */
+            transition: opacity 1.5s, width 1.5s, height 1.5s; /* Smooth large star appearance */
         }
 
 
@@ -228,9 +243,7 @@
 
     <div id="universe-bg"></div>
     <div id="stars"></div>
-
-
-    <header>
+    <div id="large-star"></div> <header>
         <div>
             <a href="#" style="font-weight: bold; font-size: 1.1em;"></a>
         </div>
@@ -249,24 +262,33 @@
         </section>
     </main>
 
-    <footer>
+    <footer style="padding-top:20%">
         &copy; 2025 - . All rights reserved.
     </footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const starsContainer = document.getElementById('stars');
+            const largeStarElement = document.getElementById('large-star'); // Get large star element
             const numStars = 200; // Adjust star density
-
             const starsData = []; // Array to store star data
-
+            let isMerging = false; // Flag to control merge animation
+            let mergeStartTime = 0;
+            const mergeDuration = 3000; // 3 seconds merge animation duration
 
             // --- Generate Stars and Store Data ---
             for (let i = 0; i < numStars; i++) {
                 const star = document.createElement('div');
                 star.classList.add('star');
 
-                const size = Math.random() * 3 + 2; /* Adjusted star size range (2px to 5px) */
+                // Wider size range, including very large stars
+                let size;
+                const randomSizeFactor = Math.random();
+                if (randomSizeFactor < 0.1) { // 10% chance of being very large
+                    size = Math.random() * 8 + 8; // Very large stars (Now 8px to 16px) - Slightly smaller
+                } else {
+                    size = Math.random() * 4 + 2;  // Smaller to medium stars (2px to 6px)
+                }
                 star.style.width = `${size}px`;
                 star.style.height = `${size}px`;
 
@@ -282,42 +304,95 @@
                     element: star,
                     x: xPos,
                     y: yPos,
-                    speedX: (Math.random() - 0.5) * 0.02, // Random horizontal speed
-                    speedY: (Math.random() - 0.5) * 0.02, // Random vertical speed
+                    size: size, // Store initial size
+                    baseSize: size, // Store base size for reset
+                    speedX: (Math.random() - 0.5) * 0.05, // Increased horizontal speed (0.05)
+                    speedY: (Math.random() - 0.5) * 0.05, // Increased vertical speed (0.05)
                     baseX: xPos, // Store initial X for reset
                     baseY: yPos  // Store initial Y for reset
                 });
             }
 
+            // --- Function to Start Merge Animation ---
+            function startMergeAnimation() {
+                if (!isMerging) {
+                    isMerging = true;
+                    mergeStartTime = performance.now(); // Record merge start time
+                    largeStarElement.style.opacity = 1; // Make large star visible (start fading in)
+                    largeStarElement.style.width = '20px'; // Start growing large star
+                    largeStarElement.style.height = '20px';
+                }
+            }
 
             // --- Animation Loop ---
             function animateStars() {
-                starsData.forEach(starData => {
-                    starData.x += starData.speedX;
-                    starData.y += starData.speedY;
+                if (!isMerging) {
+                    starsData.forEach(starData => {
+                        starData.x += starData.speedX;
+                        starData.y += starData.speedY;
 
-                    // Basic star wrapping - reset position when off-screen
-                    if (starData.x < -5) {
-                        starData.x = 105; // Reset to right side
-                    } else if (starData.x > 105) {
-                        starData.x = -5;     // Reset to left side
+                        // Basic star wrapping - reset position when off-screen
+                        if (starData.x < -5) {
+                            starData.x = 105; // Reset to right side
+                        } else if (starData.x > 105) {
+                            starData.x = -5;     // Reset to left side
+                        }
+
+                        if (starData.y < -5) {
+                            starData.y = 105; // Reset to bottom
+                        } else if (starData.y > 105) {
+                            starData.y = -5;     // Reset to top
+                        }
+
+                        starData.element.style.left = `${starData.x}vw`;
+                        starData.element.style.top = `${starData.y}vh`;
+                    });
+                } else {
+                    const elapsedTime = performance.now() - mergeStartTime;
+                    const progress = Math.min(elapsedTime / mergeDuration, 1); // 0 to 1 progress
+
+                    starsData.forEach(starData => {
+                        // Move stars towards center
+                        const targetX = 50; // Center X in vw
+                        const targetY = 50; // Center Y in vh
+
+                        const dx = targetX - starData.x;
+                        const dy = targetY - starData.y;
+
+                        starData.x += dx * 0.02 * (1 - progress); // Move faster initially
+                        starData.y += dy * 0.02 * (1 - progress);
+
+                        // Shrink and fade out small stars
+                        const sizeScale = 1 - progress; // Scale down size
+                        starData.element.style.width = `${starData.baseSize * sizeScale}px`;
+                        starData.element.style.height = `${starData.baseSize * sizeScale}px`;
+                        starData.element.style.opacity = 0.9 - progress; // Fade out
+
+                        starData.element.style.left = `${starData.x}vw`;
+                        starData.element.style.top = `${starData.y}vh`;
+                    });
+
+                    // Grow large star as small stars merge (optional - CSS transition handles this now)
+                    // largeStarElement.style.width = `${20 + (80 * progress)}px`; // Example growth - adjust as needed
+                    // largeStarElement.style.height = `${20 + (80 * progress)}px`;
+                    // largeStarElement.style.opacity = progress;
+
+                    if (progress === 1) {
+                        // Merge animation complete - Optionally reset or change state here
+                        // isMerging = false; // To allow restart - if needed
+                         largeStarElement.style.width = '100px'; // Final large star size
+                         largeStarElement.style.height = '100px';
                     }
+                }
 
-                    if (starData.y < -5) {
-                        starData.y = 105; // Reset to bottom
-                    } else if (starData.y > 105) {
-                        starData.y = -5;     // Reset to top
-                    }
-
-
-                    starData.element.style.left = `${starData.x}vw`;
-                    starData.element.style.top = `${starData.y}vh`;
-                });
 
                 requestAnimationFrame(animateStars); // Loop animation
             }
 
             animateStars(); // Start animation loop
+
+            // Start merge animation after a delay (e.g., 5 seconds after page load)
+            setTimeout(startMergeAnimation, 5000); // 5 seconds delay before merge
         });
     </script>
 
